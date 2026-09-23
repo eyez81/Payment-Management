@@ -12,21 +12,22 @@ function sheet_() {
   if (HEADERS.some((h, i) => h !== headers[i])) throw new Error('כותרות הגיליון אינן תואמות לקובץ ״מנויים ותשלומים״.');
   return sheet;
 }
-function asDate_(value) {
+function asDate_(value, timezone) {
   return value instanceof Date && !isNaN(value.getTime())
-    ? Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd')
+    ? Utilities.formatDate(value, timezone, 'yyyy-MM-dd')
     : String(value || '');
 }
-function record_(cells, row) {
+function record_(cells, row, timezone) {
   return {row: row, name:String(cells[0]||''), category:String(cells[1]||''), amount:Number(cells[2])||0,
-    currency:String(cells[3]||''), frequency:String(cells[4]||''), nextDate:asDate_(cells[5]),
-    endDate:asDate_(cells[6]), payment:String(cells[7]||''), status:String(cells[8]||''), notes:String(cells[9]||'')};
+    currency:String(cells[3]||''), frequency:String(cells[4]||''), nextDate:asDate_(cells[5], timezone),
+    endDate:asDate_(cells[6], timezone), payment:String(cells[7]||''), status:String(cells[8]||''), notes:String(cells[9]||'')};
 }
 function getSubscriptions() {
   const sheet = sheet_();
   if (sheet.getLastRow() < 2) return [];
+  const timezone = sheet.getParent().getSpreadsheetTimeZone();
   return sheet.getRange(2, 1, sheet.getLastRow()-1, 10).getValues()
-    .map((cells, i) => record_(cells, i+2)).filter(r => r.name);
+    .map((cells, i) => record_(cells, i+2, timezone)).filter(r => r.name);
 }
 function parseDate_(value) {
   if (!value) return '';
@@ -55,7 +56,7 @@ function saveSubscription(record, expected) {
     const sheet = sheet_(), row = Number(record.row) || 0, cells = cells_(record);
     if (row) {
       if (!Number.isInteger(row) || row < 2 || row > sheet.getLastRow()) throw new Error('הרשומה אינה קיימת. רענן את הדף.');
-      const current = record_(sheet.getRange(row,1,1,10).getValues()[0],row);
+      const current = record_(sheet.getRange(row,1,1,10).getValues()[0],row,sheet.getParent().getSpreadsheetTimeZone());
       if (JSON.stringify(current) !== JSON.stringify(expected)) throw new Error('הרשומה השתנתה בגיליון. רענן לפני השמירה.');
       sheet.getRange(row,1,1,10).setValues([cells]);
       sheet.getRange(row,6,1,2).setNumberFormat('dd/mm/yyyy');
@@ -72,7 +73,7 @@ function deleteSubscription(expected) {
   try {
     const sheet=sheet_(), row=Number(expected && expected.row);
     if (!Number.isInteger(row)||row<2||row>sheet.getLastRow()) throw new Error('הרשומה אינה קיימת. רענן את הדף.');
-    const current=record_(sheet.getRange(row,1,1,10).getValues()[0],row);
+    const current=record_(sheet.getRange(row,1,1,10).getValues()[0],row,sheet.getParent().getSpreadsheetTimeZone());
     if (JSON.stringify(current)!==JSON.stringify(expected)) throw new Error('הרשומה השתנתה בגיליון. רענן לפני המחיקה.');
     sheet.deleteRow(row);SpreadsheetApp.flush();return getSubscriptions();
   } finally {lock.releaseLock()}
