@@ -69,6 +69,15 @@ function cells_(r) {
   if (link && !/^https?:\/\/[^\s]+$/i.test(link)) throw new Error('הקישור חייב להתחיל ב־https:// או http://.');
   return [text_(r.name,100),text_(r.category,100),amount,r.currency,r.frequency,next,end,text_(r.payment,100),r.status,text_(r.notes,500),link,text_(r.owner,100)];
 }
+// google.script.run may deserialize object properties in a different order.
+// Compare values by field so a harmless property-order change cannot block edits.
+function sameRecord_(current, expected) {
+  if (!expected || Number(current.row) !== Number(expected.row)) return false;
+  const fields = ['name','category','amount','currency','frequency','nextDate','endDate','payment','status','notes','link','owner'];
+  return fields.every(key => key === 'amount'
+    ? Number(current[key]) === Number(expected[key])
+    : String(current[key] == null ? '' : current[key]) === String(expected[key] == null ? '' : expected[key]));
+}
 function saveSubscription(record, expected) {
   const lock = LockService.getScriptLock();lock.waitLock(10000);
   try {
@@ -76,7 +85,7 @@ function saveSubscription(record, expected) {
     if (row) {
       if (!Number.isInteger(row) || row < 2 || row > sheet.getLastRow()) throw new Error('הרשומה אינה קיימת. רענן את הדף.');
       const current = record_(sheet.getRange(row,1,1,12).getValues()[0],row,sheet.getParent().getSpreadsheetTimeZone());
-      if (JSON.stringify(current) !== JSON.stringify(expected)) throw new Error('הרשומה השתנתה בגיליון. רענן לפני השמירה.');
+      if (!sameRecord_(current, expected)) throw new Error('הרשומה השתנתה בגיליון. רענן לפני השמירה.');
       sheet.getRange(row,1,1,12).setValues([cells]);
       sheet.getRange(row,6,1,2).setNumberFormat('dd/mm/yyyy');
     } else {
@@ -93,7 +102,7 @@ function deleteSubscription(expected) {
     const sheet=sheet_(), row=Number(expected && expected.row);
     if (!Number.isInteger(row)||row<2||row>sheet.getLastRow()) throw new Error('הרשומה אינה קיימת. רענן את הדף.');
     const current=record_(sheet.getRange(row,1,1,12).getValues()[0],row,sheet.getParent().getSpreadsheetTimeZone());
-    if (JSON.stringify(current)!==JSON.stringify(expected)) throw new Error('הרשומה השתנתה בגיליון. רענן לפני המחיקה.');
+    if (!sameRecord_(current, expected)) throw new Error('הרשומה השתנתה בגיליון. רענן לפני המחיקה.');
     sheet.deleteRow(row);SpreadsheetApp.flush();return getSubscriptions();
   } finally {lock.releaseLock()}
 }
