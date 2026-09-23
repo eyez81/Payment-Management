@@ -1,6 +1,6 @@
 const SHEET_ID = '1HuCg5keyzs4BQIa3ZjzEyEVB54j-SwtGarFP5uq48Pk';
 const TAB_NAME = 'מנויים';
-const HEADERS = ['שם השירות','קטגוריה','סכום לתשלום','מטבע','תדירות','תאריך החיוב הבא','תאריך סיום','אמצעי תשלום','מצב','הערות'];
+const HEADERS = ['שם השירות','קטגוריה','סכום לתשלום','מטבע','תדירות','תאריך החיוב הבא','תאריך סיום','אמצעי תשלום','מצב','הערות','קישור'];
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index').setTitle('המנויים שלי');
@@ -9,7 +9,15 @@ function sheet_() {
   const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(TAB_NAME);
   if (!sheet) throw new Error('לא נמצאה לשונית בשם ״מנויים״.');
   const headers = sheet.getRange(1, 1, 1, 10).getValues()[0];
-  if (HEADERS.some((h, i) => h !== headers[i])) throw new Error('כותרות הגיליון אינן תואמות לקובץ ״מנויים ותשלומים״.');
+  if (HEADERS.slice(0, 10).some((h, i) => h !== headers[i])) throw new Error('כותרות הגיליון אינן תואמות לקובץ ״מנויים ותשלומים״.');
+  const linkHeader = sheet.getRange(1, 11);
+  if (!linkHeader.getValue()) {
+    linkHeader.setValue('קישור');
+    linkHeader.setBackground('#183349').setFontColor('#ffffff').setFontWeight('bold');
+    sheet.setColumnWidth(11, 260);
+  } else if (linkHeader.getValue() !== 'קישור') {
+    throw new Error('עמודה K כבר בשימוש. יש לפנות אותה לפני הוספת עמודת קישור.');
+  }
   return sheet;
 }
 function asDate_(value, timezone) {
@@ -20,13 +28,13 @@ function asDate_(value, timezone) {
 function record_(cells, row, timezone) {
   return {row: row, name:String(cells[0]||''), category:String(cells[1]||''), amount:Number(cells[2])||0,
     currency:String(cells[3]||''), frequency:String(cells[4]||''), nextDate:asDate_(cells[5], timezone),
-    endDate:asDate_(cells[6], timezone), payment:String(cells[7]||''), status:String(cells[8]||''), notes:String(cells[9]||'')};
+    endDate:asDate_(cells[6], timezone), payment:String(cells[7]||''), status:String(cells[8]||''), notes:String(cells[9]||''), link:String(cells[10]||'')};
 }
 function getSubscriptions() {
   const sheet = sheet_();
   if (sheet.getLastRow() < 2) return [];
   const timezone = sheet.getParent().getSpreadsheetTimeZone();
-  return sheet.getRange(2, 1, sheet.getLastRow()-1, 10).getValues()
+  return sheet.getRange(2, 1, sheet.getLastRow()-1, 11).getValues()
     .map((cells, i) => record_(cells, i+2, timezone)).filter(r => r.name);
 }
 function parseDate_(value) {
@@ -48,7 +56,9 @@ function cells_(r) {
   const next = parseDate_(r.nextDate), end = parseDate_(r.endDate);
   if (!next) throw new Error('יש להזין תאריך חיוב.');
   if (end && end < next) throw new Error('תאריך הסיום מוקדם מתאריך החיוב.');
-  return [text_(r.name,100),text_(r.category,100),amount,r.currency,r.frequency,next,end,text_(r.payment,100),r.status,text_(r.notes,500)];
+  const link = String(r.link || '').trim();
+  if (link && !/^https?:\/\/[^\s]+$/i.test(link)) throw new Error('הקישור חייב להתחיל ב־https:// או http://.');
+  return [text_(r.name,100),text_(r.category,100),amount,r.currency,r.frequency,next,end,text_(r.payment,100),r.status,text_(r.notes,500),link];
 }
 function saveSubscription(record, expected) {
   const lock = LockService.getScriptLock();lock.waitLock(10000);
@@ -56,13 +66,13 @@ function saveSubscription(record, expected) {
     const sheet = sheet_(), row = Number(record.row) || 0, cells = cells_(record);
     if (row) {
       if (!Number.isInteger(row) || row < 2 || row > sheet.getLastRow()) throw new Error('הרשומה אינה קיימת. רענן את הדף.');
-      const current = record_(sheet.getRange(row,1,1,10).getValues()[0],row,sheet.getParent().getSpreadsheetTimeZone());
+      const current = record_(sheet.getRange(row,1,1,11).getValues()[0],row,sheet.getParent().getSpreadsheetTimeZone());
       if (JSON.stringify(current) !== JSON.stringify(expected)) throw new Error('הרשומה השתנתה בגיליון. רענן לפני השמירה.');
-      sheet.getRange(row,1,1,10).setValues([cells]);
+      sheet.getRange(row,1,1,11).setValues([cells]);
       sheet.getRange(row,6,1,2).setNumberFormat('dd/mm/yyyy');
     } else {
       const last = sheet.getLastRow(), target = last+1;
-      sheet.getRange(target,1,1,10).setValues([cells]);
+      sheet.getRange(target,1,1,11).setValues([cells]);
       sheet.getRange(target,6,1,2).setNumberFormat('dd/mm/yyyy');
     }
     SpreadsheetApp.flush();return getSubscriptions();
@@ -73,7 +83,7 @@ function deleteSubscription(expected) {
   try {
     const sheet=sheet_(), row=Number(expected && expected.row);
     if (!Number.isInteger(row)||row<2||row>sheet.getLastRow()) throw new Error('הרשומה אינה קיימת. רענן את הדף.');
-    const current=record_(sheet.getRange(row,1,1,10).getValues()[0],row,sheet.getParent().getSpreadsheetTimeZone());
+    const current=record_(sheet.getRange(row,1,1,11).getValues()[0],row,sheet.getParent().getSpreadsheetTimeZone());
     if (JSON.stringify(current)!==JSON.stringify(expected)) throw new Error('הרשומה השתנתה בגיליון. רענן לפני המחיקה.');
     sheet.deleteRow(row);SpreadsheetApp.flush();return getSubscriptions();
   } finally {lock.releaseLock()}
