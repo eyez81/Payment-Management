@@ -8,7 +8,7 @@
 2. בתפריט הגיליון: **תוספים → Apps Script** (בממשק אנגלי: **Extensions → Apps Script**).
 3. בעורך, פתח את `Code.gs`, מחק את הטקסט הקיים והדבק במקומו את כל תוכן [Code.gs](Code.gs) מהריפו הזה.
 4. לחץ **+ → HTML**, תן לקובץ את השם `Index` והדבק בו את כל תוכן [Index.html](Index.html). שמור את שני הקבצים.
-5. ב־**Project Settings** סמן **Show appsscript.json manifest file in editor**, פתח את `appsscript.json` והחלף את תוכנו בקובץ [appsscript.json](appsscript.json) שבמאגר. שמור. בחר את הפונקציה `getRates` בתפריט הפונקציות למעלה ולחץ **Run**. אשר את ההרשאות ש־Google מציגה, כולל חיבור לשירות חיצוני. שלב זה חייב להתבצע בתוך עורך Apps Script תחת החשבון שמפרסם את היישום.
+5. ב־**Project Settings** סמן **Show appsscript.json manifest file in editor**, פתח את `appsscript.json` והחלף את תוכנו בקובץ [appsscript.json](appsscript.json) שבמאגר. שמור. בחר את הפונקציה `authorizeRates` בתפריט הפונקציות למעלה ולחץ **Run**. הפונקציה עוצרת ומבקשת במפורש את הרשאת הגישה לאינטרנט; לאחר האישור הרץ אותה שוב וודא שמופיעים שערי USD ו־EUR ביומן הביצוע. אשר את ההרשאות ש־Google מציגה, כולל חיבור לשירות חיצוני. שלב זה חייב להתבצע בתוך עורך Apps Script תחת החשבון שמפרסם את היישום.
 6. לחץ **Deploy → New deployment**. בחר סוג **Web app**. תחת **Execute as** בחר **Me**; תחת **Who has access** בחר **Only myself**. לחץ **Deploy** ואשר ל־Google את ההרשאה לגיליון שלך. אם חשבון Google Workspace שלך מציג שמות מעט שונים, בחר באפשרות שמאפשרת גישה רק לך.
 7. העתק את ה־**Web app URL** שקיבלת ופתח אותו. זה הקישור לאפליקציה שלך, גם בטלפון.
 
@@ -16,7 +16,7 @@
 
 ## עדכון האפליקציה שכבר התקנת
 
-החלף ב־Apps Script את תוכן `Code.gs` ואת תוכן `Index.html` בגרסאות האחרונות מהריפו. ב־**Project Settings** סמן **Show appsscript.json manifest file in editor**, פתח את `appsscript.json` והחלף את תוכנו בקובץ [appsscript.json](appsscript.json) שבמאגר. שמור. בחר `getRates` בתפריט הפונקציות ולחץ **Run**, ואשר את ההרשאה לגישה לאינטרנט. רק אחר כך בצע **Deploy → Manage deployments → Edit (סמל העיפרון) → Version: New version → Deploy**. פתח מחדש את אותו קישור של האפליקציה. אין צורך ליצור פריסה חדשה.
+החלף ב־Apps Script את תוכן `Code.gs` ואת תוכן `Index.html` בגרסאות האחרונות מהריפו. ב־**Project Settings** סמן **Show appsscript.json manifest file in editor**, פתח את `appsscript.json` והחלף את תוכנו בקובץ [appsscript.json](appsscript.json) שבמאגר. שמור. בחר `authorizeRates` בתפריט הפונקציות ולחץ **Run**, ואשר את ההרשאה לגישה לאינטרנט. לאחר האישור הרץ שוב וודא שמופיעים שערי USD ו־EUR ביומן הביצוע. רק אחר כך בצע **Deploy → Manage deployments → Edit (סמל העיפרון) → Version: New version → Deploy**. פתח מחדש את אותו קישור של האפליקציה. אין צורך ליצור פריסה חדשה.
 
 אפשר לעבור בין תצוגת כרטיסים לרשימה. אפשר לשלב חיפוש וסינון לפי קטגוריה, בעל תשלום, אמצעי תשלום, מצב, תדירות ומטבע, ולמיין לפי תאריך חיוב, שם או סכום מומר לשקלים. הסיכומים למעלה מחושבים רק מהמנויים שמופיעים אחרי החיפוש והסינון, ומוצגים בשקלים. קישור האתר נשמר בעמודה K, ושיוך התשלום בעמודה L. אפשר להוסיף קטגוריות, אמצעי תשלום ושמות דרך כפתורי ה־+ בטופס או דרך ״ניהול רשימות״; הערכים נשמרים בלשונית `רשימות`. האייקון נטען מ־favicon של האתר, ואם הוא לא זמין נעשה ניסיון דרך שירות האייקונים של Google; אחרת תוצג האות הראשונה של השירות. התצוגה מותאמת גם לטלפון.
 
