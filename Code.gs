@@ -182,3 +182,13 @@ function getRates() {
   } catch (error) { console.error(error); }
   return {USD:null, EUR:null, updated:null, error:'לא ניתן לטעון שער יציג מבנק ישראל (' + failure + '). יש לבדוק הרשאת חיבור לאינטרנט ב־Apps Script.'};
 }
+
+// Run once in the Apps Script editor to request the network permission explicitly.
+function authorizeRates() {
+  ScriptApp.requireScopes(ScriptApp.AuthMode.FULL, [
+    'https://www.googleapis.com/auth/script.external_request'
+  ]);
+  const rates = getRates();
+  if (!rates.USD || !rates.EUR) throw new Error(rates.error || 'שערים אינם זמינים.');
+  console.log('USD: ' + rates.USD + ', EUR: ' + rates.EUR + ', updated: ' + rates.updated);
+}
