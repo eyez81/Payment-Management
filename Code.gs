@@ -147,23 +147,38 @@ function addOption(type, rawValue) {
   } finally {lock.releaseLock()}
 }
 function getRates() {
-  const cache = CacheService.getScriptCache(), cached = cache.get('boi-rates-v1');
+  const cache = CacheService.getScriptCache(), cached = cache.get('boi-rates-v2');
   if (cached) return JSON.parse(cached);
-  try {
-    const response = UrlFetchApp.fetch('https://boi.org.il/PublicApi/GetExchangeRates', {muteHttpExceptions:true});
-    if (response.getResponseCode() !== 200) throw new Error('שירות השערים אינו זמין.');
-    const body = JSON.parse(response.getContentText());
-    const result = {USD:null, EUR:null, updated:null};
-    for (const key of ['USD','EUR']) {
-      const entry = (body.exchangeRates || []).find(r => r.key === key);
-      const rate = Number(entry && entry.currentExchangeRate), unit = Number(entry && entry.unit || 1);
-      if (!Number.isFinite(rate) || rate <= 0 || !Number.isFinite(unit) || unit <= 0) throw new Error('נתוני השערים חסרים.');
-      result[key] = rate / unit;
-      if (entry.lastUpdate && (!result.updated || entry.lastUpdate > result.updated)) result.updated = entry.lastUpdate;
+  const urls = [
+    'https://www.boi.org.il/PublicApi/GetExchangeRates',
+    'https://boi.org.il/PublicApi/GetExchangeRates'
+  ];
+  let failure = '';
+  for (const url of urls) {
+    try {
+      const response = UrlFetchApp.fetch(url, {muteHttpExceptions:true, followRedirects:true, headers:{Accept:'application/json'}});
+      if (response.getResponseCode() !== 200) throw new Error('HTTP ' + response.getResponseCode());
+      const body = JSON.parse(response.getContentText());
+      const result = {USD:null, EUR:null, updated:null};
+      for (const key of ['USD','EUR']) {
+        const entry = (body.exchangeRates || []).find(r => r.key === key);
+        const rate = Number(entry && entry.currentExchangeRate), unit = Number(entry && entry.unit || 1);
+        if (!Number.isFinite(rate) || rate <= 0 || !Number.isFinite(unit) || unit <= 0) throw new Error('נתוני ' + key + ' חסרים');
+        result[key] = rate / unit;
+        if (entry.lastUpdate && (!result.updated || entry.lastUpdate > result.updated)) result.updated = entry.lastUpdate;
+      }
+      cache.put('boi-rates-v2', JSON.stringify(result), 3600);
+      PropertiesService.getScriptProperties().setProperty('last-boi-rates', JSON.stringify(result));
+      return result;
+    } catch (error) {
+      failure = String(error.message || error);
+      console.error('Bank of Israel exchange rate request failed: ' + url + ' — ' + failure);
     }
-    cache.put('boi-rates-v1', JSON.stringify(result), 3600);
-    return result;
-  } catch (error) {
-    return {USD:null, EUR:null, updated:null, error:'לא ניתן לטעון כרגע שער יציג מבנק ישראל.'};
   }
+  try {
+    const previous = JSON.parse(PropertiesService.getScriptProperties().getProperty('last-boi-rates') || 'null');
+    if (previous && previous.USD > 0 && previous.EUR > 0 && previous.updated)
+      return Object.assign(previous, {stale:true, error:'משתמשים בשער היציג האחרון שנשמר; השליפה כעת נכשלה (' + failure + ').'});
+  } catch (error) { console.error(error); }
+  return {USD:null, EUR:null, updated:null, error:'לא ניתן לטעון שער יציג מבנק ישראל (' + failure + '). יש לבדוק הרשאת חיבור לאינטרנט ב־Apps Script.'};
 }
